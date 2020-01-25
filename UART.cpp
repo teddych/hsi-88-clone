@@ -8,8 +8,6 @@
 
 #include "UART.h"
 
-RingBuffer<unsigned char> UART::RxBuffer;
-
 UART::UART()
 {
 	// Set baudrate with util/setbaud.h
@@ -35,7 +33,7 @@ UART::UART()
 		char __attribute__((__unused__)) dummy = UDR0;
 	}
 
-	// enable interrupt
+	UART::uart = this;
 	sei();
 }
 
@@ -66,14 +64,14 @@ bool UART::Receive(unsigned char* c)
 {
 	if (!DataAvailable())
 	{
-		LED_RS232_OFF;
 		return false;
 	}
 	*c = RxBuffer.Dequeue();
+	LED_RS232_OFF;
 	return true;
 }
 
-ISR(USART0_RX_vect)
+void UART::RxInterrupt()
 {
 	if (UCSR0A & ((1 << UPE0) | (1 << FE0)))
 	{
@@ -81,5 +79,13 @@ ISR(USART0_RX_vect)
 		return;
 	}
 	LED_RS232_ON;
-	UART::RxBuffer.Enqueue(UDR0);
+	unsigned char data = UDR0;
+	RxBuffer.Enqueue(data);
+}
+
+UART* UART::uart;
+
+ISR(USART0_RX_vect)
+{
+	UART::RxInterruptStatic(UART::uart);
 }

@@ -1,15 +1,31 @@
 
 #include "CommandParser.h"
 
+bool CommandParser::Run()
+{
+	while (true)
+	{
+		SendChangedData();
+		Parse();
+	}
+}
+
 bool CommandParser::Parse()
 {
+	if (!uart.DataAvailable())
+	{
+		return true;
+	}
+
 	unsigned char command;
 	bool ret = uart.Receive(&command);
 	if (!ret)
 	{
+		LED_STOP_ON;
 		return false;
 	}
-	switch(command)
+
+	switch (command)
 	{
 		case 'v':
 			Version();
@@ -31,7 +47,25 @@ bool CommandParser::Parse()
 			return false;
 	}
 	unsigned char cr = uart.WaitReceive();
-	return (ret && cr == 0x0D);
+	if (cr != '\r')
+	{
+		LED_STOP_ON;
+		return false;
+	}
+	return true;
+}
+
+void CommandParser::SendChangedData()
+{
+	unsigned char packets = s88.DataAvailable();
+	if (packets == 0)
+	{
+		return;
+	}
+	for (unsigned char module = 0; module < packets; ++module)
+	{
+
+	}
 }
 
 unsigned char CommandParser::ReadNumber()
@@ -101,14 +135,12 @@ void CommandParser::TerminalMode()
 
 void CommandParser::SetModules()
 {
-	//uart.Send(*buffer);
+	uart.Send('s');
 	unsigned char modules1 = ReadNumber();
 	unsigned char modules2 = ReadNumber();
 	unsigned char modules3 = ReadNumber();
 	unsigned char modulesTotal = modules1 + modules2 + modules3;
-	uart.Send(modules1);
-	uart.Send(modules2);
-	uart.Send(modules3);
+	s88.SetModules(modules1, modules2, modules3);
 	WriteNumber(modulesTotal);
 	uart.Send('\r');
 	ReturnData('i');
@@ -117,7 +149,16 @@ void CommandParser::SetModules()
 void CommandParser::ReturnData(const unsigned char command)
 {
 	uart.Send(command);
-	WriteNumber(0);
+	unsigned char* data;
+	unsigned char modules = s88.GetAllData(&data);
+	WriteNumber(modules);
+	for (unsigned char module = 0; module < modules; ++module)
+	{
+		WriteNumber(module);
+		unsigned char byte = module << 1;
+		WriteNumber(data[byte]);
+		WriteNumber(data[byte + 1]);
+	}
 	uart.Send('\r');
 }
 

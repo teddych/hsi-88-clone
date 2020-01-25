@@ -5,7 +5,7 @@
 class UART
 {
 	public:
-		static RingBuffer<unsigned char> RxBuffer;
+		static UART* uart;
 
 		UART();
 
@@ -14,6 +14,11 @@ class UART
 		unsigned char WaitReceive();
 		bool Receive(unsigned char* c);
 		bool DataAvailable() { return !RxBuffer.IsEmpty(); }
+		static void RxInterruptStatic(UART* uart) { uart->RxInterrupt(); }
 
 	private:
+		void RxInterrupt();
+
+		RingBuffer<unsigned char, 3> RxBuffer;
+		RingBuffer<unsigned char, 7> TxBuffer;
 };

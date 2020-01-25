@@ -133,6 +133,6 @@
 #define S88_CLOCK_HIGH   PORTB |= (1<<S88_CLOCK)
 #define S88_CLOCK_LOW    PORTB &= ~(1<<S88_CLOCK)
 
-#define READ_S88_D1      (PINA & (1<<S88DIN1))
-#define READ_S88_D2      (PINA & (1<<S88DIN2))
-#define READ_S88_D3      (PINA & (1<<S88DIN3))
+#define READ_S88_D1      ((PINA >> S88DIN1) & 0x01)
+#define READ_S88_D2      ((PINA >> S88DIN2) & 0x01)
+#define READ_S88_D3      ((PINA >> S88DIN3) & 0x01)

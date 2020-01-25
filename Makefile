@@ -1,8 +1,8 @@
 
 MMCU=atmega644p
 #CPPFLAGS=-Os -gdwarf-2 -MD -ffunction-sections -fdata-sections -fpack-struct -fshort-enums -Wall -Wextra -Werror -c
-CPPFLAGS=-O1 -g -Wall -Wextra -fno-exceptions -std=c++11
-LDFLAGS=-g
+CPPFLAGS=-Os -Wall -Wextra -fno-exceptions -std=c++11
+LDFLAGS=
 
 OBJECTS= \
 	CommandParser.o \

@@ -1,3 +1,4 @@
+#include <avr/interrupt.h>
 
 #include "Hardware.h"
 #include "S88.h"
@@ -18,10 +19,22 @@
 // with 44pF/m and Rout=250Ohm: t(rc)=11ns/m;
 // Note: 20us are 320 cycles with a 16 MHz CPU
 
-S88::S88(UART& uart)
-:	uart(uart)
+S88::S88()
+:	modules16_1(2),
+ 	modules16_2(2),
+ 	modules16_3(2),
+ 	modules16Max123(2),
+ 	modules16Total(6),
+ 	bitsRead(0),
+ 	bitsToRead(modules16Total * 8),
+ 	dataPublished(data1),
+ 	dataUnpublished(data2),
+ 	dataReading(data3),
+ 	status(Start)
 {
 	InitDataMemory();
+	S88::s88 = this;
+	InitTimer();
 }
 
 void S88::InitDataMemory()
@@ -40,362 +53,182 @@ void S88::InitDataMemory()
 	{
 		data3[i]=0;
 	}
+}
 
-	for (unsigned char i = 0; i < sizeof(change); ++i)
+void S88::SetModules(unsigned char modules1, unsigned char modules2, unsigned char modules3)
+{
+	this->modules16_1 = modules1;
+	this->modules16_2 = modules2;
+	this->modules16_3 = modules3;
+	this->modules8_1 = modules1 << 1;
+	this->modules8_2 = modules2 << 1;
+	this->modules8_3 = modules3 << 1;
+	modules16Max123 = modules1;
+	if (modules2 > modules16Max123)
 	{
-		change[i]=0;
+		modules16Max123 = modules2;
 	}
-}
-
-bool S88::Read()
-{
-	//Reset();
-	return true;
-}
-
-void S88::Reset()
-{
-	S88_LOAD_HIGH;
-	_delay_us(Pulsduration);
-	S88_LOAD_LOW;
-	S88_CLOCK_HIGH;
-	_delay_us(Pulsduration);
-	S88_CLOCK_LOW;
-	S88_RESET_HIGH;
-	_delay_us(Pulsduration);
-	S88_RESET_LOW;
-}
-
-/*
-void s88_clock_pulse(void)
-{
-	S88_CLOCK_HIGH;
-	_delay_us(s88_pulsduration);
-	S88_CLOCK_LOW;
-	_delay_us(s88_pulsduration);
-}
-
-void read_s88(unsigned char* s88_data)
-{
-	s88_reset();
-	for (unsigned char module = 0; module < s88_size_max; ++module)
+	if (modules3 > modules16Max123)
 	{
-		for(unsigned char bitshifter = 1; bitshifter != 0; bitshifter = bitshifter << 1)
-		{
-			if (module < s88_size1 && READ_S88_D1)
-			{
-				s88_data[module] |= bitshifter;
-			}
-			if (module < s88_size2 && READ_S88_D2)
-			{
-				s88_data[module + s88_size1] |= bitshifter;
-			}
-			if (module < s88_size3 && READ_S88_D3)
-			{
-				s88_data[module + s88_size1 + s88_size2] |= bitshifter;
-			}
-
-			s88_clock_pulse();
-		}
+		modules16Max123 = modules3;
 	}
+	modules16Total = modules1 + modules2 + modules3;
+	bitsToRead = modules16Max123 * 16;
 }
 
-unsigned char init_s88()
+void S88::InitTimer()
 {
-	init_datamemory_s88();
-
-	S88_RESET_LOW;
-	S88_CLOCK_LOW;
-	S88_LOAD_LOW;
-	
-	s88_size1 = 2;
-	s88_size2 = 2;
-	s88_size3 = 2;
-
-	s88_size_max = s88_size1;
-	if (s88_size2 > s88_size_max)
-	{
-		s88_size_max = s88_size2;
-	}
-	if (s88_size3 > s88_size_max)
-	{
-		s88_size_max = s88_size3;
-	}
-
-	s88_size_total = s88_size1 + s88_size2 + s88_size3;
-	return (s88_size_total <= SIZE_S88_MAX);
+	TCCR2A = (1 << WGM21) | (0 << WGM20);
+	TCCR2B = (1 << FOC2A) | (0 << FOC2B) | (0 << WGM22) | (1 << CS22) | (1 << CS21) | (1 << CS20);
+	TIMSK2 = (1 << OCIE2A);
+	OCR2A = 1;
+	sei();
 }
 
-
-unsigned char terminalmode = 0; // 0 = binary answers/ 1 = ASCII
-
-unsigned char my_scan(unsigned char *buffer)
+void S88::TimerInterrupt()
 {
-	unsigned char retval;
-	retval = (*buffer++ & 0x0f) * 10;
-	retval += (*buffer & 0x0f);
-	return(retval);
-}
-
-void my_sprint_num(char *buffer, unsigned char num)
-{
-	*buffer++ = 0x30 + (num / 10);
-	*buffer++ = 0x30 + (num % 10);
-	*buffer   = 0;
-}
-
-void my_sprint_hex(unsigned char *buffer, unsigned char num)
-{
-	unsigned char hex;
-	hex = num >> 4;
-	hex += 0x30;
-	if (hex >= 10)
+	switch(status)
 	{
-		hex += 0x07;   // +offset f�r ABCDEF
-	}
-	*buffer++ = hex;
-	hex = num & 0x0f;
-	hex += 0x30;
-	if (hex >= 10)
-	{
-		hex += 0x07;   // +offset f�r ABCDEF
-	}
-	*buffer++ = hex;
-	*buffer   = 0;
-}
-
-
-void hsi_send_num(unsigned char nummer)
-{
-	if (terminalmode)
-	{
-		while (tx_fifo_ready() == 0);
-		char buffer[3];  // 2+1 f�r sprintf + 0
-		my_sprint_num(buffer, nummer);
-		tx_fifo_write(buffer[0]);
-		tx_fifo_write(buffer[1]);
-	}
-	else
-	{
-		while (tx_fifo_ready() == 0);
-		tx_fifo_write(nummer);
-	}
-}
-
-void hsi_send_byte(unsigned char nummer)
-{
-	if (terminalmode)
-	{
-		while (tx_fifo_ready() == 0);
-		unsigned char buffer[3];  // 2+1 f�r sprintf + 0
-		my_sprint_hex(buffer, nummer);
-		tx_fifo_write(buffer[0]);
-		tx_fifo_write(buffer[1]);
-	}
-	else
-	{
-		while (tx_fifo_ready() == 0);
-		tx_fifo_write(nummer);
-	}
-}
-
-
-void full_hsi_message(unsigned char* s88_data)
-{
-	unsigned char no_of_modules = s88_size_total >> 1;
-	hsi_send_num(no_of_modules);
-	for (unsigned char module = 0; module < no_of_modules; ++module)
-	{
-		hsi_send_num(module + 1);
-		hsi_send_byte(s88_data[2 * module + 1]);          // High byte first
-		hsi_send_byte(s88_data[2 * module ]);
-	}
-	while (tx_fifo_ready() == 0);
-	tx_fifo_write(0x0d);
-}
-
-
-
-
-// const char copyright[] PROGMEM = "Ver. x.xx / dd.mm.jj / HSI-88 / (c) LDT\r";
-const char* copyright = "Ver. 1.00 / 22.01.20 / HSI-88-Clone / Teddy\r";
-
-void copyright_message(void)
-{
-	char zeichen;
-	unsigned char i=0;
-
-	while ( (zeichen = copyright[i++]) )
-	{
-		while (tx_fifo_ready() == 0);
-		tx_fifo_write(zeichen);
-	}
-}
-
-void hsi88_parse_rs232()
-{
-	return;
-	unsigned char cmd = rx_fifo_read();
-	switch(cmd)
-	{
-		case 't':                                         // Command: toggle terminal mode
-		{
-			if (rx_fifo_read() == 0x0d)                   // discard terminating <cr>
-			{
-				tx_fifo_write('t');
-				if (terminalmode)
-				{
-					terminalmode = 0;
-					tx_fifo_write('0');
-				}
-				else
-				{
-					terminalmode = 1;
-					tx_fifo_write('1');
-				}
-				LED_STOP_OFF;
-				tx_fifo_write(0x0d);
-			}
-			else
-			{
-				LED_STOP_ON;
-			}
+		case Start:
+			S88_RESET_LOW;
+			S88_LOAD_HIGH;
+			S88_CLOCK_LOW;
+			status = Reset1;
 			break;
-		}
 
-		case 's':                                          // Command: set modules
-		{
-			unsigned int no_of_modules_links;
-			unsigned int no_of_modules_mitte;
-			unsigned int no_of_modules_rechts;
-			unsigned int no_of_modules;
-			if (terminalmode)
-			{
-				unsigned char myzahl[3];  // 2+1 f�r sprintf + 0
+		case Reset1:
+			S88_CLOCK_HIGH;
+			status = Reset2;
+			bitsRead = 0;
+			break;
 
-				myzahl[0] = rx_fifo_read();
-				myzahl[1] = rx_fifo_read();
-				myzahl[2] = 0;
-				no_of_modules_links = my_scan(myzahl);
-				
-				myzahl[0] = rx_fifo_read();
-				myzahl[1] = rx_fifo_read();
-				myzahl[2] = 0;
-				no_of_modules_mitte = my_scan(myzahl);
-				
-				myzahl[0] = rx_fifo_read();
-				myzahl[1] = rx_fifo_read();
-				myzahl[2] = 0;
-				no_of_modules_rechts = my_scan(myzahl);
-				
-				no_of_modules = no_of_modules_links + no_of_modules_mitte + no_of_modules_rechts;
-				if (no_of_modules > SIZE_S88_MAX)
-				{
-					no_of_modules_links = 2;
-					no_of_modules_mitte = 2;
-					no_of_modules_rechts = 2;
-					no_of_modules = 6;
-					LED_STOP_ON;
-				}
-				if (rx_fifo_read() == 0x0d)                 // discard terminating <cr>
-				{
-					tx_fifo_write('s');
-					hsi_send_num(no_of_modules);
-					tx_fifo_write(0x0d);
-				}
-				else
-				{
-					LED_STOP_ON;
-				}
-			}
-			else  // terminalmode = 1;
-			{
-				no_of_modules_links = rx_fifo_read();
-				no_of_modules_mitte = rx_fifo_read();
-				no_of_modules_rechts = rx_fifo_read();
-				no_of_modules = no_of_modules_links + no_of_modules_mitte + no_of_modules_rechts;
-				if (no_of_modules > SIZE_S88_MAX)
-				{
-					no_of_modules_links = 2;
-					no_of_modules_mitte = 2;
-					no_of_modules_rechts = 2;
-					no_of_modules = 6;
-					LED_STOP_ON;
-				}
-				if (rx_fifo_read() == 0x0d)                   // discard terminating <cr>
-				{
-					tx_fifo_write('s');
-					tx_fifo_write((char) no_of_modules);
-					tx_fifo_write(0x0d);
-				}
-				else
-				{
-					LED_STOP_ON;
-				}
-			}
-			// init set modules and performs the first read
-			LED_CTRL_ON;
-			s88_size1 = no_of_modules_links * 2;
-			s88_size2 = no_of_modules_mitte * 2;
-			s88_size3 = no_of_modules_rechts * 2;
-			init_s88();
-			LED_CTRL_OFF;
-			// now send answer 2
-			tx_fifo_write('i');
-			
-			full_hsi_message(s88_data1);
+		case Reset2:
+			S88_LOAD_LOW;
+			S88_RESET_HIGH;
+			status = ReadFirst;
 			break;
-		}
 
-		case 'm':                                              // Command: full read
-		{
-			if (rx_fifo_read() == 0x0d)                        // discard terminating <cr>
-			{
-				tx_fifo_write('m');
-				LED_STOP_OFF;
-				full_hsi_message(s88_data1);
-			}
-			else
-			{
-				LED_STOP_ON;
-			}
+		case ReadFirst:
+			S88_RESET_LOW;
+			S88_CLOCK_LOW;
+			ReadBit();
+			status = Shift;
 			break;
-		}
-		
-		case 'v':                                               // Command: Version
-		{
-			if (rx_fifo_read() == 0x0d)
-			{
-				copyright_message();
-				LED_STOP_OFF;
-			}
-			else
-			{
-				LED_STOP_ON;
-			}
+
+		case Read:
+			S88_CLOCK_LOW;
+			ReadBit();
 			break;
-		}
+
+		case Shift:
+			S88_CLOCK_HIGH;
+			status = (bitsRead + 1 < bitsToRead ? Read : ReadLast);
+			break;
+
+		case ReadLast:
+			S88_LOAD_HIGH;
+			S88_CLOCK_LOW;
+			ReadBit();
+			CalculateChanges();
+			status = Reset1;
+			break;
+
+		default:
+			S88_RESET_LOW;
+			S88_LOAD_LOW;
+			S88_CLOCK_LOW;
+			status = Start;
+			break;
 	}
 }
 
-void hsi88_parser(void)
+void S88::ReadBit()
 {
-	while (1)
+	unsigned char module = bitsRead >> 3;
+	unsigned char shiftInDataByte = bitsRead & 0x07;
+	if (shiftInDataByte == 0)
 	{
-		unsigned char c = rx_fifo_read();
-		tx_fifo_write(c);
+		ClearDataBytes();
 	}
+	if (module < modules8_1)
+	{
+		unsigned char dataBitBus1 = READ_S88_D1;
+		dataReading[module] |= (dataBitBus1 << shiftInDataByte);
+	}
+	if (module < modules8_2)
+	{
+		unsigned char dataBitBus2 = READ_S88_D2;
+		dataReading[modules8_1 + module] |= (dataBitBus2 << shiftInDataByte);
+	}
+	if (module < modules8_3)
+	{
+		unsigned char dataBitBus3 = READ_S88_D3;
+		dataReading[modules8_1 + modules8_2 + module] |= (dataBitBus3 << shiftInDataByte);
+	}
+	++bitsRead;
+}
 
-	if (rx_fifo_ready())
+void S88::ClearDataBytes()
+{
+	unsigned char module = bitsRead >> 3;
+	if (module < modules8_1)
 	{
-		hsi88_parse_rs232();
+		dataReading[module] = 0x00;
 	}
-	else
+	if (module < modules8_2)
 	{
-		LED_GO_ON;
-		read_s88(s88_data1);
-		LED_GO_OFF;
+		dataReading[modules8_1 + module] = 0x00;
+	}
+	if (module < modules8_3)
+	{
+		dataReading[modules8_1 + modules8_2 + module] = 0x00;
 	}
 }
 
-*/
+void S88::CalculateChanges()
+{
+	for (unsigned char module = 0; module < modules16Total; ++module)
+	{
+		unsigned char module8_1 = module << 1;
+		unsigned char module8_2 = module8_1 + 1;
+		bool changeModule1 = (dataReading[module8_1] != dataPublished[module8_1]) && (dataReading[module8_1] == dataUnpublished[module8_1]);
+		bool changeModule2 = (dataReading[module8_2] != dataPublished[module8_2]) && (dataReading[module8_2] == dataUnpublished[module8_2]);
+		if (!changeModule1 && !changeModule2)
+		{
+			continue;
+		}
+		UpdateQueueData queueData;
+		queueData.module = module;
+		if (changeModule1 && changeModule2)
+		{
+			queueData.data1 = dataReading[module8_1];
+			queueData.data2 = dataReading[module8_2];
+		}
+		else if (changeModule1)
+		{
+			queueData.data1 = dataReading[module8_1];
+			queueData.data2 = dataPublished[module8_2];
+		}
+		else // changeModule2
+		{
+			queueData.data1 = dataPublished[module8_1];
+			queueData.data2 = dataReading[module8_2];
+		}
+		if (!updateQueue.Enqueue(queueData))
+		{
+			LED_STOP_ON;
+			continue;
+		}
+	}
+	unsigned char* temp = dataPublished;
+	dataPublished = dataUnpublished;
+	dataUnpublished = dataReading;
+	dataReading = temp;
+}
+
+S88* S88::s88;
+
+ISR(TIMER2_COMPA_vect)
+{
+	S88::TimerInterruptStatic(S88::s88);
+}

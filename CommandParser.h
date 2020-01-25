@@ -14,9 +14,11 @@ class CommandParser
 		 	terminalMode(false)
 		{}
 
-		bool Parse();
+		bool Run();
 
 	private:
+		bool Parse();
+		void SendChangedData();
 		unsigned char ReadNumber();
 		void WriteNumber(const unsigned char number);
 		void Version();

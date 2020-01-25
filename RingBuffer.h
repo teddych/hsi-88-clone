@@ -1,20 +1,19 @@
 #pragma once
 
-template <class T>
+template <class T, unsigned char BitSize>
 class RingBuffer
 {
 	public:
-		static const unsigned char size = 1 << 4;
+		static const unsigned char size = 1 << BitSize;
 		static const unsigned char mask = size - 1;
 
 		RingBuffer()
 		:	write(1),
 			read(0)
 		{
-			buffer;
 		}
 
-		bool Enqueue(T data)
+		bool Enqueue(const T& data)
 		{
 			if (IsFull())
 			{
@@ -22,9 +21,6 @@ class RingBuffer
 			}
 			buffer[write] = data;
 			write = (write + 1) & mask;
-			LED_RS232_ON;
-			_delay_ms(10);
-			LED_RS232_OFF;
 			return true;
 		}
 
@@ -47,8 +43,17 @@ class RingBuffer
 			return write == read;
 		}
 
+		unsigned char PacketsInQueue()
+		{
+			if (write > read)
+			{
+				return write - read - 1;
+			}
+			return size - (read - write) - 1;
+		}
+
 	private:
-		volatile T buffer[size];
+		T buffer[size];
 		volatile unsigned char write;
 		volatile unsigned char read;
 };

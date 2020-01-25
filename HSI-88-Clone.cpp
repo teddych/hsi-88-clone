@@ -80,15 +80,9 @@ int main()
 	}
 	*/
 
-	S88 s88(uart);
+	S88 s88;
 	CommandParser parser(uart, s88);
 
-	while (true)
-	{
-		if (uart.DataAvailable())
-		{
-			parser.Parse();
-		}
-	}
+	parser.Run(); // never returns
 	return 0;
 }

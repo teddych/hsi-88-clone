@@ -5,45 +5,67 @@
 class S88
 {
 	public:
-		S88() = delete;
-		S88(UART& uart);
+		static S88* s88;
 
-		bool Read();
+		struct UpdateQueueData
+		{
+			public:
+				unsigned char module;
+				unsigned char data1;
+				unsigned char data2;
+		};
+
+		S88();
+
+		void SetModules(unsigned char modules1, unsigned char modules2, unsigned char modules3);
+
+		unsigned char DataAvailable() { return updateQueue.PacketsInQueue(); }
+		UpdateQueueData GetData() { return updateQueue.Dequeue(); }
+		unsigned char GetAllData(unsigned char** data) { *data = dataPublished; return modules16Total; }
+
+		static void TimerInterruptStatic(S88* s88) { s88->TimerInterrupt(); }
 
 	private:
 		void InitDataMemory();
-		void Reset();
+		void InitTimer();
+		void TimerInterrupt();
+		void ReadBit();
+		void ClearDataBytes();
+		void CalculateChanges();
 
-		static const unsigned char Pulsduration = 100; // us
 		static const unsigned char MaxModules = 31;
 
-		unsigned char modules1;
-		unsigned char modules2;
-		unsigned char modules3;
-		unsigned char modulesMax123;
-		unsigned char modulesTotal;
+		enum Status : unsigned char
+		{
+			Start = 0,
+			Reset1,
+			Reset2,
+			ReadFirst,
+			Read,
+			Shift,
+			ReadLast
+
+		};
+
+		unsigned char modules16_1;
+		unsigned char modules16_2;
+		unsigned char modules16_3;
+		unsigned char modules16Max123;
+		unsigned char modules16Total;
+		unsigned char modules8_1;
+		unsigned char modules8_2;
+		unsigned char modules8_3;
+		unsigned char bitsRead;
+		unsigned char bitsToRead;
 
 		unsigned char data1[MaxModules];
 		unsigned char data2[MaxModules];
 		unsigned char data3[MaxModules];
-		unsigned char change[MaxModules];
+		unsigned char* dataPublished;
+		unsigned char* dataUnpublished;
+		unsigned char* dataReading;
 
-		UART& uart;
+		Status status;
+
+		RingBuffer<UpdateQueueData, 7> updateQueue;
 };
-
-/*
-void s88_clock_pulse(void);
-void s88_reset(void);
-void init_datamemory_s88(void);
-void read_s88(unsigned char* s88_data);
-unsigned char init_s88();
-unsigned char my_scan(unsigned char *buffer);
-void my_sprint_num(char *buffer, unsigned char num);
-void my_sprint_hex(unsigned char *buffer, unsigned char num);
-void hsi_send_num(unsigned char nummer);
-void hsi_send_byte(unsigned char nummer);
-void full_hsi_message(unsigned char* s88_data);
-void copyright_message(void);
-void hsi88_parse_rs232();
-void hsi88_parser(void);
-*/
