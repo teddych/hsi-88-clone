@@ -146,9 +146,9 @@ void CommandParser::SetModules()
 	unsigned char modules2 = ReadNumber();
 	unsigned char modules3 = ReadNumber();
 	unsigned char modulesTotal = modules1 + modules2 + modules3;
-	s88.SetModules(modules1, modules2, modules3);
 	WriteNumber(modulesTotal);
 	uart.Send('\r');
+	s88.SetModules(modules1, modules2, modules3);
 	ReturnData('i');
 }
 

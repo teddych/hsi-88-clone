@@ -58,24 +58,30 @@ void S88::InitDataMemory()
 
 void S88::SetModules(unsigned char modules1, unsigned char modules2, unsigned char modules3)
 {
-	this->modules16_1 = modules1;
-	this->modules16_2 = modules2;
-	this->modules16_3 = modules3;
-	this->modules8_1 = modules1 << 1;
-	this->modules8_2 = modules2 << 1;
-	this->modules8_3 = modules3 << 1;
-	modules16Max123 = modules1;
-	if (modules2 > modules16Max123)
+	modules16_1 = modules1;
+	modules16_2 = modules2;
+	modules16_3 = modules3;
+	modules16Total = modules16_1 + modules16_2 + modules3;
+	if (modules16Total > MaxModules16)
 	{
-		modules16Max123 = modules2;
+		modules16_1 = 2;
+		modules16_2 = 2;
+		modules16_3 = 2;
 	}
-	if (modules3 > modules16Max123)
+	modules8_1 = modules16_1 << 1;
+	modules8_2 = modules16_2 << 1;
+	modules8_3 = modules16_3 << 1;
+	modules16Max123 = modules16_1;
+	if (modules16_2 > modules16Max123)
 	{
-		modules16Max123 = modules3;
+		modules16Max123 = modules16_2;
 	}
-	modules16Total = modules1 + modules2 + modules3;
-	bitsToRead = modules16Max123 * 16;
-	SetModulesToEeprom(modules1, modules2, modules3);
+	if (modules16_3 > modules16Max123)
+	{
+		modules16Max123 = modules16_3;
+	}
+	bitsToRead = static_cast<uint16_t>(modules16Max123) * 16;
+	SetModulesToEeprom(modules16_1, modules16_2, modules16_3);
 }
 
 void S88::SetModulesToEeprom(unsigned char modules1, unsigned char modules2, unsigned char modules3)

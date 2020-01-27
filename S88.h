@@ -37,7 +37,8 @@ class S88
 		void ClearDataBytes();
 		void CalculateChanges();
 
-		static const unsigned char MaxModules = 31;
+		static const unsigned char MaxModules16 = 31;
+		static const unsigned char MaxModules8 = MaxModules16 << 1;
 		static const uint16_t EepromBaseAddress = 0x200;
 
 
@@ -61,12 +62,12 @@ class S88
 		unsigned char modules8_1;
 		unsigned char modules8_2;
 		unsigned char modules8_3;
-		unsigned char bitsRead;
-		unsigned char bitsToRead;
+		uint16_t bitsRead;
+		uint16_t bitsToRead;
 
-		unsigned char data1[MaxModules];
-		unsigned char data2[MaxModules];
-		unsigned char data3[MaxModules];
+		unsigned char data1[MaxModules8];
+		unsigned char data2[MaxModules8];
+		unsigned char data3[MaxModules8];
 		unsigned char* dataPublished;
 		unsigned char* dataUnpublished;
 		unsigned char* dataReading;
