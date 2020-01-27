@@ -1,5 +1,7 @@
 #include <avr/interrupt.h>
 
+#include "Crc8.h"
+#include "Eeprom.h"
 #include "Hardware.h"
 #include "S88.h"
 
@@ -20,22 +22,18 @@
 // Note: 20us are 320 cycles with a 16 MHz CPU
 
 S88::S88()
-:	modules16_1(2),
-	modules16_2(2),
-	modules16_3(2),
-	modules16Max123(2),
-	modules16Total(6),
-	modules8_1(4),
-	modules8_2(4),
-	modules8_3(4),
-	bitsRead(0),
-	bitsToRead(modules16Max123 * 16),
+:	bitsRead(0),
 	dataPublished(data1),
 	dataUnpublished(data2),
 	dataReading(data3),
 	status(Start)
 {
 	InitDataMemory();
+	unsigned char modules1;
+	unsigned char modules2;
+	unsigned char modules3;
+	GetModulesFromEeprom(&modules1, &modules2, &modules3);
+	SetModules(modules1, modules2, modules3);
 	S88::s88 = this;
 	InitTimer();
 }
@@ -77,6 +75,40 @@ void S88::SetModules(unsigned char modules1, unsigned char modules2, unsigned ch
 	}
 	modules16Total = modules1 + modules2 + modules3;
 	bitsToRead = modules16Max123 * 16;
+	SetModulesToEeprom(modules1, modules2, modules3);
+}
+
+void S88::SetModulesToEeprom(unsigned char modules1, unsigned char modules2, unsigned char modules3)
+{
+	CRC8 crc;
+	crc.CalcChar(modules1);
+	crc.CalcChar(modules2);
+	crc.CalcChar(modules3);
+	EEPROM::UpdateByte(EepromBaseAddress, modules1);
+	EEPROM::UpdateByte(EepromBaseAddress + 1, modules2);
+	EEPROM::UpdateByte(EepromBaseAddress + 2, modules3);
+	EEPROM::UpdateByte(EepromBaseAddress + 3, crc.Value());
+}
+
+void S88::GetModulesFromEeprom(unsigned char* modules1, unsigned char* modules2, unsigned char* modules3)
+{
+	*modules1 = EEPROM::ReadByte(EepromBaseAddress);
+	*modules2 = EEPROM::ReadByte(EepromBaseAddress + 1);
+	*modules3 = EEPROM::ReadByte(EepromBaseAddress + 2);
+	unsigned char crcRead = EEPROM::ReadByte(EepromBaseAddress + 3);
+	CRC8 crc;
+	crc.CalcChar(*modules1);
+	crc.CalcChar(*modules2);
+	crc.CalcChar(*modules3);
+	unsigned char crcCalc = crc.Value();
+	if (crcRead == crcCalc)
+	{
+		return;
+	}
+	*modules1 = 2;
+	*modules2 = 2;
+	*modules3 = 2;
+	SetModulesToEeprom(*modules1, *modules2, *modules3);
 }
 
 void S88::InitTimer()

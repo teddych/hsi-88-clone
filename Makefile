@@ -6,6 +6,8 @@ LDFLAGS=
 
 OBJECTS= \
 	CommandParser.o \
+	Crc8.o \
+	Eeprom.o \
 	HSI-88-Clone.o \
 	S88.o \
 	UART.o

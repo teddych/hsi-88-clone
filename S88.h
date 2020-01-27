@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #include "UART.h"
 
 class S88
@@ -26,6 +28,8 @@ class S88
 		static void TimerInterruptStatic(S88* s88) { s88->TimerInterrupt(); }
 
 	private:
+		void GetModulesFromEeprom(unsigned char* modules1, unsigned char* modules2, unsigned char* modules3);
+		void SetModulesToEeprom(unsigned char modules1, unsigned char modules2, unsigned char modules3);
 		void InitDataMemory();
 		void InitTimer();
 		void TimerInterrupt();
@@ -34,6 +38,8 @@ class S88
 		void CalculateChanges();
 
 		static const unsigned char MaxModules = 31;
+		static const uint16_t EepromBaseAddress = 0x200;
+
 
 		enum Status : unsigned char
 		{
