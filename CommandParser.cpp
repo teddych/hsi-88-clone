@@ -57,15 +57,21 @@ bool CommandParser::Parse()
 
 void CommandParser::SendChangedData()
 {
-	unsigned char packets = s88.DataAvailable();
-	if (packets == 0)
+	unsigned char modules = s88.DataAvailable();
+	if (modules == 0)
 	{
 		return;
 	}
-	for (unsigned char module = 0; module < packets; ++module)
+	uart.Send('i');
+	WriteNumber(modules);
+	for (unsigned char module = 0; module < modules; ++module)
 	{
-
+		S88::UpdateQueueData data = s88.GetData();
+		WriteNumber(data.module + 1);
+		WriteNumber(data.data2);
+		WriteNumber(data.data1);
 	}
+	uart.Send('\r');
 }
 
 unsigned char CommandParser::ReadNumber()
@@ -154,10 +160,10 @@ void CommandParser::ReturnData(const unsigned char command)
 	WriteNumber(modules);
 	for (unsigned char module = 0; module < modules; ++module)
 	{
-		WriteNumber(module);
+		WriteNumber(module + 1);
 		unsigned char byte = module << 1;
-		WriteNumber(data[byte]);
 		WriteNumber(data[byte + 1]);
+		WriteNumber(data[byte]);
 	}
 	uart.Send('\r');
 }

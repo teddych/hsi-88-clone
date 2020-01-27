@@ -68,21 +68,9 @@ int main()
 	InitHardware();
 
 	UART uart;
-	/*
-	while (true)
-	{
-		unsigned char c;
-		if (uart.Receive(&c))
-		{
-			uart.Send(c);
-			_delay_ms(1000);
-		}
-	}
-	*/
-
 	S88 s88;
 	CommandParser parser(uart, s88);
-
+	LED_GO_ON;
 	parser.Run(); // never returns
 	return 0;
 }

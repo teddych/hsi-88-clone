@@ -42,8 +42,10 @@ void UART::Send(const unsigned char c)
 	// wait until sending is possible
 	while (!(UCSR0A & (1<<UDRE0)));
 	
+	LED_RS232_ON;
 	// writes char c to usart
 	UDR0 = c;
+	LED_RS232_OFF;
 }
 
 void UART::Send(const unsigned char* buffer, const unsigned char size)
@@ -67,7 +69,6 @@ bool UART::Receive(unsigned char* c)
 		return false;
 	}
 	*c = RxBuffer.Dequeue();
-	LED_RS232_OFF;
 	return true;
 }
 
@@ -78,7 +79,6 @@ void UART::RxInterrupt()
 		char __attribute__((__unused__)) dummy = UDR0;
 		return;
 	}
-	LED_RS232_ON;
 	unsigned char data = UDR0;
 	RxBuffer.Enqueue(data);
 }

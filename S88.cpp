@@ -21,16 +21,19 @@
 
 S88::S88()
 :	modules16_1(2),
- 	modules16_2(2),
- 	modules16_3(2),
- 	modules16Max123(2),
- 	modules16Total(6),
- 	bitsRead(0),
- 	bitsToRead(modules16Total * 8),
- 	dataPublished(data1),
- 	dataUnpublished(data2),
- 	dataReading(data3),
- 	status(Start)
+	modules16_2(2),
+	modules16_3(2),
+	modules16Max123(2),
+	modules16Total(6),
+	modules8_1(4),
+	modules8_2(4),
+	modules8_3(4),
+	bitsRead(0),
+	bitsToRead(modules16Max123 * 16),
+	dataPublished(data1),
+	dataUnpublished(data2),
+	dataReading(data3),
+	status(Start)
 {
 	InitDataMemory();
 	S88::s88 = this;
@@ -79,14 +82,15 @@ void S88::SetModules(unsigned char modules1, unsigned char modules2, unsigned ch
 void S88::InitTimer()
 {
 	TCCR2A = (1 << WGM21) | (0 << WGM20);
-	TCCR2B = (1 << FOC2A) | (0 << FOC2B) | (0 << WGM22) | (1 << CS22) | (1 << CS21) | (1 << CS20);
+	TCCR2B = (1 << FOC2A) | (0 << FOC2B) | (0 << WGM22) | (0 << CS22) | (1 << CS21) | (1 << CS20);
 	TIMSK2 = (1 << OCIE2A);
-	OCR2A = 1;
+	OCR2A = 12;
 	sei();
 }
 
 void S88::TimerInterrupt()
 {
+	LED_CTRL_ON;
 	switch(status)
 	{
 		case Start:
@@ -118,6 +122,7 @@ void S88::TimerInterrupt()
 		case Read:
 			S88_CLOCK_LOW;
 			ReadBit();
+			status = Shift;
 			break;
 
 		case Shift:
@@ -126,11 +131,10 @@ void S88::TimerInterrupt()
 			break;
 
 		case ReadLast:
-			S88_LOAD_HIGH;
 			S88_CLOCK_LOW;
 			ReadBit();
 			CalculateChanges();
-			status = Reset1;
+			status = Start;
 			break;
 
 		default:
@@ -140,6 +144,7 @@ void S88::TimerInterrupt()
 			status = Start;
 			break;
 	}
+	LED_CTRL_OFF;
 }
 
 void S88::ReadBit()
