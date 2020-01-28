@@ -23,9 +23,8 @@
 
 S88::S88()
 :	bitsRead(0),
-	dataPublished(data1),
-	dataUnpublished(data2),
-	dataReading(data3),
+	dataUnpublished(data1),
+	dataReading(data2),
 	status(Start)
 {
 	InitDataMemory();
@@ -40,6 +39,11 @@ S88::S88()
 
 void S88::InitDataMemory()
 {
+	for (unsigned char i = 0; i < sizeof(dataPublished); ++i)
+	{
+		dataPublished[i]=0;
+	}
+
 	for (unsigned char i = 0; i < sizeof(data1); ++i)
 	{
 		data1[i]=0;
@@ -48,11 +52,6 @@ void S88::InitDataMemory()
 	for (unsigned char i = 0; i < sizeof(data2); ++i)
 	{
 		data2[i]=0;
-	}
-
-	for (unsigned char i = 0; i < sizeof(data3); ++i)
-	{
-		data3[i]=0;
 	}
 }
 
@@ -234,37 +233,34 @@ void S88::CalculateChanges()
 	{
 		unsigned char module8_1 = module << 1;
 		unsigned char module8_2 = module8_1 + 1;
-		bool changeModule1 = (dataReading[module8_1] != dataPublished[module8_1]) && (dataReading[module8_1] == dataUnpublished[module8_1]);
-		bool changeModule2 = (dataReading[module8_2] != dataPublished[module8_2]) && (dataReading[module8_2] == dataUnpublished[module8_2]);
-		if (!changeModule1 && !changeModule2)
+		unsigned char allowChangeModule8_1 = ~(dataUnpublished[module8_1] ^ dataReading[module8_1]);
+		unsigned char bitsChangedModule8_1 = (dataPublished[module8_1] ^ dataReading[module8_1]) & allowChangeModule8_1;
+		unsigned char allowChangeModule8_2 = ~(dataUnpublished[module8_2] ^ dataReading[module8_2]);
+		unsigned char bitsChangedModule8_2 = (dataPublished[module8_2] ^ dataReading[module8_2]) & allowChangeModule8_2;
+		if (!(bitsChangedModule8_1 | bitsChangedModule8_2))
 		{
 			continue;
 		}
+		if (bitsChangedModule8_1)
+		{
+			dataPublished[module8_1] = (dataPublished[module8_1] & (~bitsChangedModule8_1)) | (dataReading[module8_1] & bitsChangedModule8_1);
+		}
+		if (bitsChangedModule8_2)
+		{
+			dataPublished[module8_2] = (dataPublished[module8_2] & (~bitsChangedModule8_2)) | (dataReading[module8_2] & bitsChangedModule8_2);
+		}
+
 		UpdateQueueData queueData;
 		queueData.module = module;
-		if (changeModule1 && changeModule2)
-		{
-			queueData.data1 = dataReading[module8_1];
-			queueData.data2 = dataReading[module8_2];
-		}
-		else if (changeModule1)
-		{
-			queueData.data1 = dataReading[module8_1];
-			queueData.data2 = dataPublished[module8_2];
-		}
-		else // changeModule2
-		{
-			queueData.data1 = dataPublished[module8_1];
-			queueData.data2 = dataReading[module8_2];
-		}
+		queueData.data1 = dataPublished[module8_1];
+		queueData.data2 = dataPublished[module8_2];
 		if (!updateQueue.Enqueue(queueData))
 		{
 			LED_STOP_ON;
 			continue;
 		}
 	}
-	unsigned char* temp = dataPublished;
-	dataPublished = dataUnpublished;
+	unsigned char* temp = dataUnpublished;
 	dataUnpublished = dataReading;
 	dataReading = temp;
 }

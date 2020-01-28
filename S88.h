@@ -65,10 +65,9 @@ class S88
 		uint16_t bitsRead;
 		uint16_t bitsToRead;
 
+		unsigned char dataPublished[MaxModules8];
 		unsigned char data1[MaxModules8];
 		unsigned char data2[MaxModules8];
-		unsigned char data3[MaxModules8];
-		unsigned char* dataPublished;
 		unsigned char* dataUnpublished;
 		unsigned char* dataReading;
 
