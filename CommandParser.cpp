@@ -67,6 +67,11 @@ void CommandParser::SendChangedData()
 	for (unsigned char module = 0; module < modules; ++module)
 	{
 		S88::UpdateQueueData data = s88.GetData();
+		if (data.module > S88::MaxModules16)
+		{
+			LED_STOP_ON;
+			return;
+		}
 		WriteNumber(data.module + 1);
 		WriteNumber(data.data2);
 		WriteNumber(data.data1);

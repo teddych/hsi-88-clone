@@ -9,6 +9,8 @@ class S88
 	public:
 		static S88* s88;
 
+		static const unsigned char MaxModules16 = 31;
+
 		struct UpdateQueueData
 		{
 			public:
@@ -37,7 +39,6 @@ class S88
 		void ClearDataBytes();
 		void CalculateChanges();
 
-		static const unsigned char MaxModules16 = 31;
 		static const unsigned char MaxModules8 = MaxModules16 << 1;
 		static const uint16_t EepromBaseAddress = 0x200;
 
