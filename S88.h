@@ -23,7 +23,7 @@ class S88
 
 		void SetModules(unsigned char modules1, unsigned char modules2, unsigned char modules3);
 
-		unsigned char DataAvailable() { return updateQueue.PacketsInQueue(); }
+		unsigned char DataAvailable() const { return updateQueue.PacketsInQueue(); }
 		UpdateQueueData GetData() { return updateQueue.Dequeue(); }
 		unsigned char GetAllData(unsigned char** data) { *data = dataPublished; return modules16Total; }
 

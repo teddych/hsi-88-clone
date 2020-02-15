@@ -66,6 +66,7 @@ void S88::SetModules(unsigned char modules1, unsigned char modules2, unsigned ch
 		modules16_1 = 2;
 		modules16_2 = 2;
 		modules16_3 = 2;
+		modules16Total = 6;
 	}
 	modules8_1 = modules16_1 << 1;
 	modules8_2 = modules16_2 << 1;

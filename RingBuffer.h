@@ -32,24 +32,26 @@ class RingBuffer
 			return data;
 		}
 
-		bool IsEmpty()
+		bool IsEmpty() const
 		{
 			unsigned char nextRead = (read + 1) & mask;
 			return (nextRead == write);
 		}
 
-		bool IsFull()
+		bool IsFull() const
 		{
 			return write == read;
 		}
 
-		unsigned char PacketsInQueue()
+		unsigned char PacketsInQueue() const
 		{
-			if (write > read)
+			const unsigned char writeInternal = write;
+			const unsigned char readInternal = read;
+			if (writeInternal > readInternal)
 			{
-				return write - read - 1;
+				return writeInternal - readInternal - 1;
 			}
-			return size - (read - write) - 1;
+			return size - (readInternal - writeInternal) - 1;
 		}
 
 	private:
